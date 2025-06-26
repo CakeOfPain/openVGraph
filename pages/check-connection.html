@@ -1,0 +1,90 @@
+<!-- check-connection.html -->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>OpenVGraph – JanusGraph Connection</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link
+      rel="stylesheet"
+      href="../node_modules/bootstrap/dist/css/bootstrap.min.css"
+    />
+    <style>
+      html, body { height: 100%; }
+      #result-view { display: none; }
+      .step-failed { background-color: #f8d7da !important; }
+      .step-success { background-color: #d4edda !important; }
+      .step-current { background-color: #cce5ff !important; }
+    </style>
+  </head>
+  <body class="bg-light d-flex justify-content-center align-items-center">
+    <div id="loader-wrapper" class="container">
+      <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+          <div class="card shadow-sm">
+            <div class="card-body text-center p-4">
+              <div id="spinner" class="spinner-border text-primary mb-4" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+              <h3 id="loader-title" class="card-title mb-4">Connecting to JanusGraph…</h3>
+              <div class="progress mb-4" style="height:24px">
+                <div
+                  id="progressBar"
+                  class="progress-bar progress-bar-striped progress-bar-animated"
+                  role="progressbar"
+                  style="width:0%"
+                  aria-valuenow="0"
+                  aria-valuemin="0"
+                  aria-valuemax="100">0%</div>
+              </div>
+              <ul id="routeMap" class="list-group list-group-flush text-start">
+                <li id="step-0" class="list-group-item d-flex justify-content-between align-items-center step-current">
+                  Initialising
+                  <span id="step-0-status" class="badge bg-primary">In Progress</span>
+                </li>
+                <li id="step-1" class="list-group-item d-flex justify-content-between align-items-center">
+                  Discovering Endpoints
+                  <span id="step-1-status" class="badge bg-secondary">Pending</span>
+                </li>
+                <li id="step-2" class="list-group-item d-flex justify-content-between align-items-center">
+                  Checking Credentials
+                  <span id="step-2-status" class="badge bg-secondary">Pending</span>
+                </li>
+                <li id="step-3" class="list-group-item d-flex justify-content-between align-items-center">
+                  Connect and Verifiy
+                  <span id="step-3-status" class="badge bg-secondary">Pending</span>
+                </li>
+                <li id="step-4" class="list-group-item d-flex justify-content-between align-items-center">
+                  Ready
+                  <span id="step-4-status" class="badge bg-secondary">Pending</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Result View (always shows full route map too) -->
+    <div id="result-view" class="container">
+      <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+          <div class="card shadow-sm">
+            <div class="card-body text-center p-4">
+              <h3 id="result-title" class="card-title mb-4"></h3>
+              <p id="result-message" class="mb-4"></p>
+              <button id="retry-button" class="btn btn-primary">Retry</button>
+              <hr>
+              <ul id="final-routeMap" class="list-group list-group-flush text-start">
+                <!-- cloned from #routeMap via JS -->
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="../node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="check-connection-renderer.js"></script>
+  </body>
+</html>

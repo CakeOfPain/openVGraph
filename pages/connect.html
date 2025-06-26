@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OpenVGraph - Connect to JanusGraph</title>
+    <link
+      rel="stylesheet"
+      href="../node_modules/bootstrap/dist/css/bootstrap.min.css"
+    />
+  </head>
+  <body class="bg-light">
+    <main class="container py-5">
+      <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+          <!-- constrain card height, use flex column -->
+          <div
+            class="card shadow-sm d-flex flex-column"
+            style="max-height: 85vh;"
+          >
+            <div class="card-header bg-white">
+              <div class="d-flex justify-content-between align-items-center">
+                <h3 class="mb-0">Connect to Janus Graph</h3>
+                <button
+                  type="button"
+                  class="btn btn-outline-secondary btn-sm"
+                  onclick="nav.goTo('getting-started')"
+                >
+                  &larr; Back
+                </button>
+              </div>
+            </div>
+            <!-- make body scrollable when content grows too tall -->
+            <div class="card-body overflow-auto">
+              <form id="connectForm" novalidate>
+                <div class="mb-3">
+                  <label for="host" class="form-label">Host</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="host"
+                    name="host"
+                    placeholder="e.g. localhost"
+                    required
+                  />
+                  <div class="invalid-feedback">
+                    Please enter the hostname or IP.
+                  </div>
+                </div>
+
+                <div class="row mb-3">
+                  <div class="col">
+                    <label for="port" class="form-label">Port</label>
+                    <input
+                      type="number"
+                      class="form-control"
+                      id="port"
+                      name="port"
+                      placeholder="8182"
+                      required
+                    />
+                    <div class="invalid-feedback">
+                      Please enter the port number.
+                    </div>
+                  </div>
+                  <div class="col d-flex align-items-end">
+                    <div class="form-check mb-0">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        id="useSSL"
+                        name="useSSL"
+                      />
+                      <label class="form-check-label" for="useSSL">
+                        Use SSL/TLS
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="mb-3">
+                  <label for="path" class="form-label">Path</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="path"
+                    name="path"
+                    placeholder="/gremlin"
+                    required
+                  />
+                  <div class="invalid-feedback">
+                    Please enter the HTTP/WebSocket path.
+                  </div>
+                </div>
+
+                <div class="mb-3">
+                  <label for="username" class="form-label">Username</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="username"
+                    name="username"
+                    placeholder="(if required)"
+                  />
+                </div>
+
+                <div class="mb-3">
+                  <label for="password" class="form-label">Password</label>
+                  <input
+                    type="password"
+                    class="form-control"
+                    id="password"
+                    name="password"
+                    placeholder="(if required)"
+                  />
+                </div>
+
+                <div class="d-grid">
+                  <button type="submit" class="btn btn-primary">
+                    Connect
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Bootstrap Bundle (includes Popper) -->
+    <script src="../node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Your JS logic goes here -->
+    <script>
+      (function () {
+        'use strict';
+        const form = document.getElementById('connectForm');
+        form.addEventListener(
+          'submit',
+          function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!form.checkValidity()) {
+              form.classList.add('was-validated');
+              return;
+            }
+
+            localStorage.setItem("connection_config", JSON.stringify({
+              host: form.host.value,
+              port: parseInt(form.port.value, 10),
+              useSSL: form.useSSL.checked,
+              path: form.path.value,
+              username: form.username.value,
+              password: form.password.value,
+            }));
+            
+            nav.goTo("check-connection");
+          },
+          false
+        );
+      })();
+    </script>
+  </body>
+</html>

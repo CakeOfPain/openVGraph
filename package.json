@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "bootstrap": "^5.3.7",
+    "gremlin": "^3.7.3",
     "i": "^0.3.7",
     "npm": "^11.4.2"
   }
