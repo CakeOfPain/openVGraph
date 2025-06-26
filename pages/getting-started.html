@@ -65,5 +65,10 @@
     <!-- Bootstrap JS (requires Popper.js for some components) -->
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2/dist/umd/popper.min.js"></script>
     <script src="../node_modules/bootstrap/dist/js/bootstrap.min.js"></script>
+    <script>
+        if(localStorage.getItem("connection_config") !== null) {
+            nav.goTo("check-connection");
+        }
+    </script>
   </body>
 </html>

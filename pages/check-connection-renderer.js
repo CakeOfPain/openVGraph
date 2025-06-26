@@ -4,8 +4,7 @@
     'Initialising',
     'Discovering Endpoints',
     'Checking Credentials',
-    'Connect and Verifiy',
-    'Ready'
+    'Connect and Verifiy'
   ];
 
   const total = steps.length;
@@ -101,26 +100,27 @@
 
     try {
       // discover endpoints
-      current = 1; updateProgress(current);
+      current = 1;
       const cfg = JSON.parse(localStorage.getItem('connection_config') || '{}');
       const { host, port, useSSL, path, username, password } = cfg;
       const endpoint = `${useSSL ? 'wss' : 'ws'}://${host}:${port}${path}`;
+      updateProgress(current);
 
       // check credentials
-      current = 2; updateProgress(current);
+      current = 2;
       const opts = {};
       if (username && password) {
         opts.authenticator = window.gremlinApi.createAuthenticator(username, password);
       }
+      updateProgress(current);
 
       // verify schema
-      current = 3; updateProgress(current);
+      current = 3;
       const ok = await window.gremlinApi.checkSchema(endpoint, opts);
-      if (!ok) throw new Error('Schema validation failed');
+      if (!ok) throw new Error('Connecting to JanusGraph failed');
+      updateProgress(current);
 
-      // ready
-      current = 4; updateProgress(current);
-      showResult(true, 'You are now connected to JanusGraph.');
+      nav.goTo("query");
     } catch (err) {
       console.error('Connection error:', err);
       updateProgress(current, false);
@@ -129,7 +129,10 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('retry-button').onclick = () => nav.goTo('connect');
+    document.getElementById('retry-button').onclick = () => {
+        localStorage.removeItem("connection_config");
+        nav.goTo('connect');
+    }
     checkConnection();
   });
 })();

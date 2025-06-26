@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>OpenVGraph – Graph Visualizer</title>
+    <link
+      rel="stylesheet"
+      href="../node_modules/bootstrap/dist/css/bootstrap.min.css"
+    />
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        display: flex;
+        flex-direction: column;
+      }
+      /* Tabs & panes fill the remaining space */
+      #tab-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .tab-pane {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+      }
+      #graph {
+        width: 100%;
+        height: 100%;
+      }
+      .tooltip {
+        position: absolute;
+        pointer-events: none;
+        background: rgba(0, 0, 0, 0.7);
+        color: #fff;
+        padding: 6px;
+        border-radius: 4px;
+        font-size: 12px;
+      }
+
+      /* Monaco hosts */
+      #query-editor {
+        width: 100%;
+        height: 2.25em; /* roughly one text-line high */
+        border: 1px solid #ced4da;
+        border-radius: 0.25rem;
+        padding: 0.125rem; /* a little breathing room */
+        box-sizing: border-box;
+      }
+      #raw-json {
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body class="bg-light">
+    <nav class="navbar navbar-light bg-white shadow-sm p-3">
+      <form id="gremlin-form" class="form-inline w-100">
+        <div id="query-editor"></div>
+        <button type="submit" class="btn btn-primary ml-2">Run</button>
+      </form>
+    </nav>
+
+    <!-- Tabs -->
+    <ul class="nav nav-tabs">
+      <li class="nav-item">
+        <a
+          class="nav-link active"
+          id="graph-tab-btn"
+          data-bs-toggle="tab"
+          href="#graph-tab"
+          role="tab"
+          >Graph</a
+        >
+      </li>
+      <li class="nav-item">
+        <a
+          class="nav-link"
+          id="json-tab-btn"
+          data-bs-toggle="tab"
+          href="#json-tab"
+          role="tab"
+          >Raw JSON</a
+        >
+      </li>
+    </ul>
+
+    <!-- Panes -->
+    <div id="tab-content" class="tab-content">
+      <div
+        id="graph-tab"
+        class="tab-pane fade show active"
+        role="tabpanel"
+        aria-labelledby="graph-tab-btn"
+      >
+        <div id="graph"></div>
+        <div id="tooltip" class="tooltip" style="opacity: 0"></div>
+      </div>
+      <div
+        id="json-tab"
+        class="tab-pane fade"
+        role="tabpanel"
+        aria-labelledby="json-tab-btn"
+      >
+        <div id="raw-json"></div>
+      </div>
+    </div>
+
+    <!-- D3 & Bootstrap bundle from node_modules -->
+    <script src="../node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+
+    <!-- Monaco loader -->
+    <script src="../node_modules/monaco-editor/min/vs/loader.js"></script>
+    <script>
+      // Tell Monaco where its code lives
+      require.config({
+        paths: {
+          vs: "../node_modules/monaco-editor/min/vs",
+        },
+      });
+      require(["vs/editor/editor.main"], function () {
+        // 1) Create the query editor
+        const queryEditor = monaco.editor.create(
+          document.getElementById("query-editor"),
+          {
+            value: "",
+            language: "java",
+            theme: "vs-light",
+            automaticLayout: true,
+
+            /* Disable the right-hand “minimap” preview */
+            minimap: { enabled: false },
+
+            /* Hide line numbers, folding, overview ruler, etc. */
+            lineNumbers: "off",
+            folding: false,
+            glyphMargin: false,
+            lineDecorationsWidth: 0,
+            overviewRulerLanes: 0,
+
+            /* Prevent the editor from growing taller than our CSS height */
+            scrollBeyondLastLine: false,
+            scrollbar: {
+              vertical: "hidden",
+              horizontal: "auto",
+            },
+
+            /* Optional: reduce cursor width, remove line highlight */
+            cursorStyle: "line",
+            renderLineHighlight: "none",
+          }
+        );
+
+        // 2) Register a tiny Gremlin keyword completion
+        monaco.languages.registerCompletionItemProvider("java", {
+          triggerCharacters: [".", "("],
+          provideCompletionItems: () => {
+            const keywords = [
+              "V",
+              "E",
+              "bothE",
+              "bothV",
+              "inE",
+              "outE",
+              "inV",
+              "outV",
+              "has",
+              "hasLabel",
+              "hasId",
+              "limit",
+              "path",
+              "drop",
+              "toList",
+              "iterate",
+              "valueMap",
+              "properties",
+            ];
+            return {
+              suggestions: keywords.map((kw) => ({
+                label: kw,
+                kind: monaco.languages.CompletionItemKind.Method,
+                insertText: kw + "()",
+                insertTextRules:
+                  monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+              })),
+            };
+          },
+        });
+
+        // 3) Create the raw-JSON viewer
+        const rawEditor = monaco.editor.create(
+          document.getElementById("raw-json"),
+          {
+            value: "",
+            language: "json",
+            theme: "vs-light",
+            readOnly: true,
+            minimap: { enabled: false },
+            automaticLayout: true,
+          }
+        );
+
+        // 4) Your existing D3 + Gremlin wiring
+        const form = document.getElementById("gremlin-form");
+        const svgContainer = d3.select("#graph");
+        const tooltip = d3.select("#tooltip");
+        let svg, inner, zoom, simulation, links, nodes;
+
+        function createSvg() {
+          svgContainer.selectAll("*").remove();
+          svg = svgContainer.append("svg").attr("width", 0).attr("height", 0);
+          inner = svg.append("g").attr("class", "inner");
+          zoom = d3
+            .zoom()
+            .scaleExtent([0.1, 10])
+            .on("zoom", (e) => inner.attr("transform", e.transform));
+          svg.call(zoom);
+          resize();
+        }
+        function resize() {
+          if (!svg) return;
+          const w = svgContainer.node().clientWidth,
+            h = svgContainer.node().clientHeight;
+          svg.attr("width", w).attr("height", h);
+          if (simulation) {
+            simulation
+              .force("center", d3.forceCenter(w / 2, h / 2))
+              .alpha(0.3)
+              .restart();
+          }
+        }
+        window.addEventListener("resize", resize);
+        function autoFit() {
+          if (!nodes || !nodes.length) return;
+          const w = svgContainer.node().clientWidth,
+            h = svgContainer.node().clientHeight;
+          const xs = nodes.map((d) => d.x),
+            ys = nodes.map((d) => d.y);
+          const x0 = Math.min(...xs),
+            x1 = Math.max(...xs),
+            y0 = Math.min(...ys),
+            y1 = Math.max(...ys);
+          const dx = x1 - x0,
+            dy = y1 - y0;
+          if (!dx || !dy) return;
+          const scale = Math.min(w / dx, h / dy) * 0.9;
+          const tx = (w - scale * (x0 + x1)) / 2,
+            ty = (h - scale * (y0 + y1)) / 2;
+          svg
+            .transition()
+            .duration(750)
+            .call(
+              zoom.transform,
+              d3.zoomIdentity.translate(tx, ty).scale(scale)
+            );
+        }
+
+        form.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          new bootstrap.Tab(document.querySelector("#graph-tab-btn")).show();
+
+          // 1) run the Gremlin query from Monaco
+          let raw;
+          try {
+            raw = await window.api.executeQuery(queryEditor.getValue());
+          } catch (err) {
+            return alert("Query error: " + err.message);
+          }
+
+          // 2) show it in the JSON editor
+          rawEditor.setValue(JSON.stringify(raw, null, 2));
+
+          // 3) flatten Path results & fetch all vertices if needed
+          const flattened = [];
+          raw.forEach((item) => {
+            if (Array.isArray(item.objects)) {
+              item.objects.forEach((o) => flattened.push(o));
+            } else {
+              flattened.push(item);
+            }
+          });
+          if (raw.length && Array.isArray(raw[0].objects)) {
+            let allV = [];
+            try {
+              allV = await window.api.executeQuery("g.V().toList()");
+            } catch (_) {}
+            allV.forEach((v) => flattened.push(v));
+          }
+
+          // 4) parse into nodes & links
+          function extractProps(map) {
+            const out = {};
+            for (const [k, v] of Object.entries(map || {})) {
+              if (Array.isArray(v)) {
+                const vals = v.map((x) => x.value);
+                out[k] = vals.length === 1 ? vals[0] : vals;
+              } else out[k] = v;
+            }
+            return out;
+          }
+          const nodesMap = new Map();
+          links = [];
+          flattened.forEach((item) => {
+            let type,
+              v = item;
+            if (item["@type"] && item["@value"]) {
+              type = item["@type"];
+              v = item["@value"];
+            } else if (item.outV != null && item.inV != null) {
+              type = "g:Edge";
+            } else if (item.id != null && item.label) {
+              type = "g:Vertex";
+            } else return;
+
+            if (type === "g:Vertex") {
+              nodesMap.set(v.id, {
+                id: v.id,
+                label: v.label,
+                props: extractProps(v.properties),
+              });
+            } else {
+              const src = typeof v.outV === "object" ? v.outV.id : v.outV;
+              const tgt = typeof v.inV === "object" ? v.inV.id : v.inV;
+              links.push({
+                id: v.id,
+                source: src,
+                target: tgt,
+                label: v.label,
+                props: extractProps(v.properties),
+              });
+              if (!nodesMap.has(src))
+                nodesMap.set(src, { id: src, label: "", props: {} });
+              if (!nodesMap.has(tgt))
+                nodesMap.set(tgt, { id: tgt, label: "", props: {} });
+            }
+          });
+          nodes = Array.from(nodesMap.values());
+
+          // 5) draw + zoom + force + autoFit
+          createSvg();
+          inner
+            .append("g")
+            .attr("stroke", "#999")
+            .attr("stroke-opacity", 0.6)
+            .selectAll("line")
+            .data(links)
+            .join("line")
+            .attr("stroke-width", (d) => Math.sqrt(d.props.weight || 1));
+
+          const nodeElems = inner
+            .append("g")
+            .selectAll("circle")
+            .data(nodes)
+            .join("circle")
+            .attr("r", 8)
+            .attr("fill", "#1f77b4")
+            .call(
+              d3
+                .drag()
+                .on("start", (e, d) => {
+                  if (!e.active) simulation.alphaTarget(0.3).restart();
+                  d.fx = d.x;
+                  d.fy = d.y;
+                })
+                .on("drag", (e, d) => {
+                  d.fx = e.x;
+                  d.fy = e.y;
+                })
+                .on("end", (e, d) => {
+                  if (!e.active) simulation.alphaTarget(0);
+                  d.fx = d.fy = null;
+                })
+            );
+
+          nodeElems
+            .on("mouseover", (ev, d) => {
+              tooltip
+                .style("opacity", 1)
+                .html(
+                  `
+                <strong>${d.label || "vertex"}</strong><br/>
+                id: ${d.id}<br/>
+                ${Object.entries(d.props)
+                  .map(([k, v]) => `${k}: ${v}`)
+                  .join("<br/>")}
+              `
+                )
+                .style("left", ev.pageX + 10 + "px")
+                .style("top", ev.pageY + 10 + "px");
+            })
+            .on("mouseout", () => tooltip.style("opacity", 0))
+            .append("title")
+            .text((d) => `${d.label} (${d.id})`);
+
+          simulation = d3
+            .forceSimulation(nodes)
+            .force(
+              "link",
+              d3
+                .forceLink(links)
+                .id((d) => d.id)
+                .distance(80)
+            )
+            .force("charge", d3.forceManyBody().strength(-200))
+            .force(
+              "center",
+              d3.forceCenter(
+                svgContainer.node().clientWidth / 2,
+                svgContainer.node().clientHeight / 2
+              )
+            )
+            .on("tick", () => {
+              inner
+                .selectAll("line")
+                .attr("x1", (d) => d.source.x)
+                .attr("y1", (d) => d.source.y)
+                .attr("x2", (d) => d.target.x)
+                .attr("y2", (d) => d.target.y);
+              nodeElems.attr("cx", (d) => d.x).attr("cy", (d) => d.y);
+            })
+            .on("end", autoFit);
+        });
+      });
+    </script>
+  </body>
+</html>
