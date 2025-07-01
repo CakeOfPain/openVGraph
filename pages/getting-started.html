@@ -21,6 +21,11 @@
     </style>
   </head>
   <body class="bg-light">
+    <script>
+        if(localStorage.getItem("connection_config") !== null) {
+            nav.goTo("check-connection");
+        }
+    </script>
     <div class="container py-5">
       <h1 class="mb-4 text-center">👋 Welcome to OpenVGraph</h1>
       <div class="row g-4">
@@ -65,10 +70,5 @@
     <!-- Bootstrap JS (requires Popper.js for some components) -->
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2/dist/umd/popper.min.js"></script>
     <script src="../node_modules/bootstrap/dist/js/bootstrap.min.js"></script>
-    <script>
-        if(localStorage.getItem("connection_config") !== null) {
-            nav.goTo("check-connection");
-        }
-    </script>
   </body>
 </html>
