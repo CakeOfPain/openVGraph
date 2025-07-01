@@ -1,5 +1,6 @@
 # OpenVGraph
 
+![Query](/docs/res/OpenVGraph-Query.png)
 ![Homescreen](/docs/res/OpenVGraph-Home.png)
 ![Connect](/docs/res/OpenVGraph-Connect.png)
 
