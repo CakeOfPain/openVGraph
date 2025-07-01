@@ -1,5 +1,8 @@
 # OpenVGraph
 
+![Homescreen](/docs/res/OpenVGraph-Home.png)
+![Connect](/docs/res/OpenVGraph-Connect.png)
+
 **OpenVGraph** is an Electron-based desktop application that lets you connect to a JanusGraph database, run arbitrary Gremlin queries, and visualize the results as an interactive D3 force-directed graph. It also features an integrated Monaco-based Gremlin editor with autocomplete and a JSON viewer pane.
 
 ---
