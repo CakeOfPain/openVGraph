@@ -608,7 +608,6 @@
             submitBtn.click();
           },
         });
-
         const svgContainer = d3.select("#graph");
         const tooltip = d3.select("#tooltip");
         let svg, inner, zoom, simulation, links, nodes;
@@ -624,6 +623,7 @@
           svg.call(zoom);
           resize();
         }
+
         function resize() {
           if (!svg) return;
           const w = svgContainer.node().clientWidth,
@@ -636,6 +636,7 @@
               .restart();
           }
         }
+
         window.addEventListener("resize", resize);
 
         form.addEventListener("submit", async (e) => {
@@ -648,22 +649,19 @@
           } catch (err) {
             return alert("Query error: " + err.message);
           }
-
           rawEditor.setValue(JSON.stringify(raw, null, 2));
 
           const flattened = [];
           raw.forEach((item) => {
-            if (Array.isArray(item.objects)) {
+            if (Array.isArray(item.objects))
               item.objects.forEach((o) => flattened.push(o));
-            } else {
-              flattened.push(item);
-            }
+            else flattened.push(item);
           });
           if (raw.length && Array.isArray(raw[0].objects)) {
             let allV = [];
             try {
               allV = await window.api.executeQuery("g.V().toList()");
-            } catch (_) {}
+            } catch {}
             allV.forEach((v) => flattened.push(v));
           }
 
@@ -677,8 +675,10 @@
             }
             return out;
           }
+
           const nodesMap = new Map();
           links = [];
+
           flattened.forEach((item) => {
             let type,
               v = item;
@@ -706,6 +706,7 @@
                 target: tgt,
                 label: v.label,
                 props: extractProps(v.properties),
+                curvature: (Math.random() - 0.5) * 2,
               });
               if (!nodesMap.has(src))
                 nodesMap.set(src, { id: src, label: "", props: {} });
@@ -713,46 +714,67 @@
                 nodesMap.set(tgt, { id: tgt, label: "", props: {} });
             }
           });
-          nodes = Array.from(nodesMap.values());
 
+          // Remove duplicates: same source, target, and label
+          {
+            const seen = new Set();
+            links = links.filter((d) => {
+              const key = `${d.source}|${d.target}|${d.label}`;
+              if (seen.has(key)) return false;
+              seen.add(key);
+              return true;
+            });
+          }
+
+          nodes = Array.from(nodesMap.values());
           createSvg();
+
+          // arrowhead
           svg
             .append("defs")
-            .selectAll("marker")
-            .data(["arrowhead"]) // Define the id for the arrow marker
-            .join("marker")
+            .append("marker")
             .attr("id", "arrowhead")
             .attr("viewBox", "0 -5 10 10")
-            .attr("refX", 22) // Increased the value to 16 to account for the node radius (8) + some padding
+            .attr("refX", 22)
             .attr("refY", 0)
             .attr("markerWidth", 6)
             .attr("markerHeight", 6)
             .attr("orient", "auto")
             .append("path")
-            .attr("d", "M0,-5L10,0L0,5") // Shape of the arrow
-            .attr("fill", "#999"); // Arrow color
+            .attr("d", "M0,-5L10,0L0,5")
+            .attr("fill", "#999");
 
-          inner
+          // curved link paths
+          const linkGroup = inner
             .append("g")
+            .attr("fill", "none")
             .attr("stroke", "#999")
-            .attr("stroke-opacity", 0.6)
-            .selectAll("line")
+            .attr("stroke-opacity", 0.6);
+
+          const linkPaths = linkGroup
+            .selectAll("path")
             .data(links)
-            .join("line")
+            .join("path")
+            .attr("id", (d, i) => `linkPath${i}`)
             .attr("stroke-width", (d) => Math.sqrt(d.props.weight || 1))
             .attr("marker-end", "url(#arrowhead)");
 
+          // labels on curves
           const linkLabels = inner
             .append("g")
             .selectAll("text")
             .data(links)
             .join("text")
+            .append("textPath")
+            .attr("href", (d, i) => `#linkPath${i}`)
+            .attr("startOffset", "50%")
+            .attr("text-anchor", "middle")
             .style("font-size", "10px")
             .style("font-family", "Arial")
             .style("fill", "#666")
-            .attr("text-anchor", "middle")
             .text((d) => d.label || "");
 
+          // nodes
           const nodeElems = inner
             .append("g")
             .selectAll("g")
@@ -778,7 +800,7 @@
 
           const colorScale = d3
             .scaleOrdinal()
-            .domain([...new Set(nodes.map((node) => node.label))])
+            .domain([...new Set(nodes.map((n) => n.label))])
             .range(d3.schemeCategory10);
 
           nodeElems
@@ -794,13 +816,10 @@
             .style("font-family", "Arial")
             .style("fill", "#333")
             .each(function (d) {
-              const text = `${d.label || "vertex"} (id: ${
-                d.id
-              })\n${Object.entries(d.props)
-                .map(([k, v]) => `${k}: ${v}`)
-                .join("\n")}`;
-
-              const lines = text.split("\n");
+              const lines = [
+                `${d.label || "vertex"} (id: ${d.id})`,
+                ...Object.entries(d.props).map(([k, v]) => `${k}: ${v}`),
+              ];
               let prev = null;
               lines.forEach((line, i) => {
                 prev = d3
@@ -833,16 +852,25 @@
               )
             )
             .on("tick", () => {
-              inner
-                .selectAll("line")
-                .attr("x1", (d) => d.source.x)
-                .attr("y1", (d) => d.source.y)
-                .attr("x2", (d) => d.target.x)
-                .attr("y2", (d) => d.target.y);
-
-              linkLabels
-                .attr("x", (d) => (d.source.x + d.target.x) / 2)
-                .attr("y", (d) => (d.source.y + d.target.y) / 2);
+              linkPaths.attr("d", (d) => {
+                const x1 = d.source.x,
+                  y1 = d.source.y,
+                  x2 = d.target.x,
+                  y2 = d.target.y,
+                  dx = x2 - x1,
+                  dy = y2 - y1,
+                  mx = (x1 + x2) / 2,
+                  my = (y1 + y2) / 2,
+                  px = -dy,
+                  py = dx,
+                  norm = Math.sqrt(px * px + py * py) || 1,
+                  ux = px / norm,
+                  uy = py / norm,
+                  offset = d.curvature * Math.sqrt(dx * dx + dy * dy),
+                  cx = mx + ux * offset,
+                  cy = my + uy * offset;
+                return `M${x1},${y1} Q${cx},${cy} ${x2},${y2}`;
+              });
 
               nodeElems
                 .selectAll("circle")
