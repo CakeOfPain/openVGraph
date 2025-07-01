@@ -1,464 +1,861 @@
 <!DOCTYPE html>
 <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>OpenVGraph – Graph Visualizer</title>
+    <link
+      rel="stylesheet"
+      href="../node_modules/bootstrap/dist/css/bootstrap.min.css"
+    />
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
 
-<head>
-  <meta charset="UTF-8" />
-  <title>OpenVGraph – Graph Visualizer</title>
-  <link rel="stylesheet" href="../node_modules/bootstrap/dist/css/bootstrap.min.css" />
-  <style>
-    html,
-    body {
-      height: 100%;
-      margin: 0;
-    }
+      body {
+        display: flex;
+        flex-direction: column;
+      }
 
-    body {
-      display: flex;
-      flex-direction: column;
-    }
+      /* Tabs & panes fill the remaining space */
+      #tab-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
 
-    /* Tabs & panes fill the remaining space */
-    #tab-content {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
+      .tab-pane {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+      }
 
-    .tab-pane {
-      flex: 1;
-      position: relative;
-      overflow: hidden;
-    }
+      #graph {
+        width: 100%;
+        height: 100%;
+      }
 
-    #graph {
-      width: 100%;
-      height: 100%;
-    }
+      .tooltip {
+        position: absolute;
+        pointer-events: none;
+        background: rgba(0, 0, 0, 0.7);
+        color: #fff;
+        padding: 6px;
+        border-radius: 4px;
+        font-size: 12px;
+      }
 
-    .tooltip {
-      position: absolute;
-      pointer-events: none;
-      background: rgba(0, 0, 0, 0.7);
-      color: #fff;
-      padding: 6px;
-      border-radius: 4px;
-      font-size: 12px;
-    }
+      /* Monaco hosts */
+      #query-editor {
+        width: 100%;
+        height: 2.5em; /* initial height */
+        border: 1px solid #ced4da;
+        border-radius: 0.25rem;
+        padding-top: 0.625em;
+        padding-left: 5px;
+        padding-right: 5px;
+        box-sizing: border-box;
+        min-height: 2.5em;
+      }
 
-    /* Monaco hosts */
-    #query-editor {
-      width: 100%;
-      height: 2.5em;
-      /* roughly one text-line high */
-      border: 1px solid #ced4da;
-      border-radius: 0.25rem;
-      padding-top: 0.625em;
-      padding-left: 5px;
-      padding-right: 5px;
-      /* a little breathing room */
-      box-sizing: border-box;
-    }
+      #raw-json {
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
 
-    #raw-json {
-      width: 100%;
-      height: 100%;
-    }
-  </style>
-</head>
-
-<body class="bg-light">
-  <nav class="navbar navbar-light bg-white shadow-sm p-3">
-    <form id="gremlin-form" class="form-inline w-100">
-      <div class="d-flex justify-content-center mb-4">
-        <div class="form-outline me-3" style="width: calc(100% - 10px); padding-right: 5px; padding-left: 5px;">
-          <div id="query-editor"></div>
+  <body class="bg-light">
+    <nav class="navbar navbar-light bg-white shadow-sm p-3">
+      <form id="gremlin-form" class="form-inline w-100">
+        <div class="d-flex justify-content-center mb-4">
+          <div
+            class="form-outline me-3"
+            style="
+              width: calc(100% - 10px);
+              padding-right: 5px;
+              padding-left: 5px;
+            "
+          >
+            <div id="query-editor"></div>
+          </div>
+          <button id="submit-btn" type="submit" class="btn btn-primary ml-2">
+            Run
+          </button>
         </div>
-        <button id="submit-btn" type="submit" class="btn btn-primary ml-2">Run</button>
+      </form>
+    </nav>
+
+    <!-- Tabs -->
+    <ul class="nav nav-tabs">
+      <li class="nav-item">
+        <a
+          class="nav-link active"
+          id="graph-tab-btn"
+          data-bs-toggle="tab"
+          href="#graph-tab"
+          role="tab"
+          >Graph</a
+        >
+      </li>
+      <li class="nav-item">
+        <a
+          class="nav-link"
+          id="json-tab-btn"
+          data-bs-toggle="tab"
+          href="#json-tab"
+          role="tab"
+          >Raw JSON</a
+        >
+      </li>
+    </ul>
+
+    <!-- Panes -->
+    <div id="tab-content" class="tab-content">
+      <div
+        id="graph-tab"
+        class="tab-pane fade show active"
+        role="tabpanel"
+        aria-labelledby="graph-tab-btn"
+      >
+        <div id="graph"></div>
+        <div id="tooltip" class="tooltip" style="opacity: 0"></div>
       </div>
-    </form>
-  </nav>
-
-  <!-- Tabs -->
-  <ul class="nav nav-tabs">
-    <li class="nav-item">
-      <a class="nav-link active" id="graph-tab-btn" data-bs-toggle="tab" href="#graph-tab" role="tab">Graph</a>
-    </li>
-    <li class="nav-item">
-      <a class="nav-link" id="json-tab-btn" data-bs-toggle="tab" href="#json-tab" role="tab">Raw JSON</a>
-    </li>
-  </ul>
-
-  <!-- Panes -->
-  <div id="tab-content" class="tab-content">
-    <div id="graph-tab" class="tab-pane fade show active" role="tabpanel" aria-labelledby="graph-tab-btn">
-      <div id="graph"></div>
-      <div id="tooltip" class="tooltip" style="opacity: 0"></div>
+      <div
+        id="json-tab"
+        class="tab-pane fade"
+        role="tabpanel"
+        aria-labelledby="json-tab-btn"
+      >
+        <div id="raw-json"></div>
+      </div>
     </div>
-    <div id="json-tab" class="tab-pane fade" role="tabpanel" aria-labelledby="json-tab-btn">
-      <div id="raw-json"></div>
-    </div>
-  </div>
 
-  <!-- D3 & Bootstrap bundle from node_modules -->
-  <script src="../node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="https://d3js.org/d3.v7.min.js"></script>
+    <!-- D3 & Bootstrap bundle from node_modules -->
+    <script src="../node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
 
-  <!-- Monaco loader -->
-  <script src="../node_modules/monaco-editor/min/vs/loader.js"></script>
-  <script>
-    // Tell Monaco where its code lives
-    require.config({
-      paths: {
-        vs: "../node_modules/monaco-editor/min/vs",
-      },
-    });
-    require(["vs/editor/editor.main"], function () {
-      // 1) Create the query editor
-      const queryEditor = monaco.editor.create(
-        document.getElementById("query-editor"),
-        {
-          value: "",
-          language: "java",
-          theme: "vs-light",
-          automaticLayout: true,
+    <!-- Monaco loader -->
+    <script src="../node_modules/monaco-editor/min/vs/loader.js"></script>
+    <script>
+      // Tell Monaco where its code lives
+      require.config({
+        paths: {
+          vs: "../node_modules/monaco-editor/min/vs",
+        },
+      });
+      require(["vs/editor/editor.main"], function () {
+        // 1) Create the query editor
+        const queryEditor = monaco.editor.create(
+          document.getElementById("query-editor"),
+          {
+            value: "",
+            language: "java",
+            theme: "vs-light",
+            automaticLayout: true,
 
-          /* Disable the right-hand “minimap” preview */
-          minimap: { enabled: false },
+            /* Disable the right-hand “minimap” preview */
+            minimap: { enabled: false },
 
-          /* Hide line numbers, folding, overview ruler, etc. */
-          lineNumbers: "off",
-          folding: false,
-          glyphMargin: false,
-          lineDecorationsWidth: 0,
-          overviewRulerLanes: 0,
+            /* Hide line numbers, folding, overview ruler, etc. */
+            lineNumbers: "off",
+            folding: false,
+            glyphMargin: false,
+            lineDecorationsWidth: 0,
+            overviewRulerLanes: 0,
 
-          /* Prevent the editor from growing taller than our CSS height */
-          scrollBeyondLastLine: false,
-          scrollbar: {
-            vertical: "hidden",
-            horizontal: "auto",
-          },
+            /* Prevent the editor from growing taller than our CSS height */
+            scrollBeyondLastLine: false,
+            scrollbar: {
+              vertical: "hidden",
+              horizontal: "auto",
+            },
 
-          /* Optional: reduce cursor width, remove line highlight */
-          cursorStyle: "line",
-          renderLineHighlight: "none",
-        }
-      );
+            /* Optional: reduce cursor width, remove line highlight */
+            cursorStyle: "line",
+            renderLineHighlight: "none",
+          }
+        );
 
-      // 2) Register a tiny Gremlin keyword completion
-      monaco.languages.registerCompletionItemProvider("java", {
-        triggerCharacters: [".", "("],
-        provideCompletionItems: () => {
-          const keywords = [
-            "V",
-            "E",
-            "bothE",
-            "bothV",
-            "inE",
-            "outE",
-            "inV",
-            "outV",
-            "has",
-            "hasLabel",
-            "hasId",
-            "limit",
-            "path",
-            "drop",
-            "toList",
-            "iterate",
-            "valueMap",
-            "property",
-            "properties",
-            "addV",
-            "addE",
-            "as"
+        // 2) Register a tiny Gremlin keyword completion
+        (function registerGremlinAutocomplete(monaco) {
+          const gremlinSteps = [
+            {
+              label: "V",
+              detail: "g.V()",
+              documentation: "Retrieve all vertices.",
+            },
+            {
+              label: "E",
+              detail: "g.E()",
+              documentation: "Retrieve all edges.",
+            },
+            {
+              label: "bothE",
+              detail: "bothE()",
+              documentation: "Get both incoming and outgoing edges.",
+            },
+            {
+              label: "bothV",
+              detail: "bothV()",
+              documentation: "Get both endpoints of edges.",
+            },
+            {
+              label: "inE",
+              detail: "inE()",
+              documentation: "Get incoming edges.",
+            },
+            {
+              label: "outE",
+              detail: "outE()",
+              documentation: "Get outgoing edges.",
+            },
+            {
+              label: "inV",
+              detail: "inV()",
+              documentation: "Get incoming vertices.",
+            },
+            {
+              label: "outV",
+              detail: "outV()",
+              documentation: "Get outgoing vertices.",
+            },
+            {
+              label: "has",
+              detail: "has(label, value)",
+              documentation: "Filter by property key and value.",
+            },
+            {
+              label: "hasLabel",
+              detail: "hasLabel(labels)",
+              documentation: "Filter by label(s).",
+            },
+            {
+              label: "hasId",
+              detail: "hasId(ids)",
+              documentation: "Filter by id(s).",
+            },
+            {
+              label: "limit",
+              detail: "limit(n)",
+              documentation: "Limit to first n results.",
+            },
+            {
+              label: "path",
+              detail: "path()",
+              documentation: "Return traversal path.",
+            },
+            {
+              label: "drop",
+              detail: "drop()",
+              documentation: "Remove elements.",
+            },
+            {
+              label: "toList",
+              detail: "toList()",
+              documentation: "Convert results to a List.",
+            },
+            {
+              label: "iterate",
+              detail: "iterate()",
+              documentation: "Execute without returning results.",
+            },
+            {
+              label: "valueMap",
+              detail: "valueMap()",
+              documentation: "Map elements to their properties.",
+            },
+            {
+              label: "property",
+              detail: "property(key, value)",
+              documentation: "Set or update a property.",
+            },
+            {
+              label: "properties",
+              detail: "properties()",
+              documentation: "Get all properties.",
+            },
+            {
+              label: "addV",
+              detail: "addV(label)",
+              documentation: "Add a vertex.",
+            },
+            {
+              label: "addE",
+              detail: "addE(label)",
+              documentation: "Add an edge.",
+            },
+            {
+              label: "as",
+              detail: "as(label)",
+              documentation: "Label a step.",
+            },
+            {
+              label: "count",
+              detail: "count()",
+              documentation:
+                "Count the number of objects in the current traversal.",
+            },
+            {
+              label: "sum",
+              detail: "sum()",
+              documentation: "Sum the numeric values of the traversers.",
+            },
+            {
+              label: "mean",
+              detail: "mean()",
+              documentation: "Compute the mean of the numeric values.",
+            },
+            {
+              label: "min",
+              detail: "min()",
+              documentation: "Find the minimum of numeric values.",
+            },
+            {
+              label: "max",
+              detail: "max()",
+              documentation: "Find the maximum of numeric values.",
+            },
+            {
+              label: "fold",
+              detail: "fold()",
+              documentation: "Fold all incoming objects into a single list.",
+            },
+            {
+              label: "unfold",
+              detail: "unfold()",
+              documentation: "Unfold a list into individual objects.",
+            },
+            {
+              label: "dedup",
+              detail: "dedup()",
+              documentation: "Remove duplicate objects from the traversal.",
+            },
+            {
+              label: "order",
+              detail: "order()",
+              documentation: "Order the objects by given comparator.",
+            },
+            {
+              label: "by",
+              detail: "by(keyOrTraversal)",
+              documentation:
+                "Specify a scope or key for ordering, grouping, etc.",
+            },
+            {
+              label: "group",
+              detail: "group()",
+              documentation: "Group objects into a map keyed by a projection.",
+            },
+            {
+              label: "groupCount",
+              detail: "groupCount()",
+              documentation: "Count objects per group.",
+            },
+            {
+              label: "project",
+              detail: "project(keys)",
+              documentation: "Project selected keys into a map per object.",
+            },
+            {
+              label: "select",
+              detail: "select(labels)",
+              documentation:
+                "Select objects previously labeled in the traversal.",
+            },
+            {
+              label: "where",
+              detail: "where(predicate)",
+              documentation: "Filter objects by a traverser-scoped predicate.",
+            },
+            {
+              label: "filter",
+              detail: "filter(predicate)",
+              documentation: "Filter by a boolean predicate.",
+            },
+            {
+              label: "map",
+              detail: "map(transformer)",
+              documentation:
+                "Transform each object via a function or traversal.",
+            },
+            {
+              label: "flatMap",
+              detail: "flatMap(traversal)",
+              documentation: "Map and then flatten nested traversals.",
+            },
+            {
+              label: "union",
+              detail: "union(traversals)",
+              documentation: "Merge the results of multiple traversals.",
+            },
+            {
+              label: "coalesce",
+              detail: "coalesce(traversals)",
+              documentation: "Return the first non-empty traversal.",
+            },
+            {
+              label: "choose",
+              detail: "choose(predicate, t1, t2)",
+              documentation: "Branch the traversal based on a predicate.",
+            },
+            {
+              label: "repeat",
+              detail: "repeat(traversal)",
+              documentation: "Repeat a traversal step zero or more times.",
+            },
+            {
+              label: "times",
+              detail: "times(n)",
+              documentation: "Specify how many times to repeat in a `repeat`.",
+            },
+            {
+              label: "until",
+              detail: "until(predicate)",
+              documentation: "Stop repeating when predicate is true.",
+            },
+            {
+              label: "range",
+              detail: "range(low, high)",
+              documentation:
+                "Emit objects between index `low` (inclusive) and `high` (exclusive).",
+            },
+            {
+              label: "shuffle",
+              detail: "shuffle()",
+              documentation: "Randomly shuffle the traversers.",
+            },
+            {
+              label: "sample",
+              detail: "sample(n)",
+              documentation: "Randomly pick `n` objects.",
+            },
+            {
+              label: "sideEffect",
+              detail: "sideEffect(traversal)",
+              documentation: "Execute a traversal for its side-effects.",
+            },
+            {
+              label: "store",
+              detail: "store(sideEffectKey)",
+              documentation: "Store objects in a side-effect container.",
+            },
+            {
+              label: "aggregate",
+              detail: "aggregate(sideEffectKey)",
+              documentation: "Aggregate objects into a side-effect.",
+            },
+            {
+              label: "barrier",
+              detail: "barrier()",
+              documentation:
+                "Force a barrier; useful in OLAP for bulk operations.",
+            },
+            {
+              label: "profile",
+              detail: "profile()",
+              documentation: "Gather metrics for traversal profiling.",
+            },
+            {
+              label: "match",
+              detail: "match(pattern)",
+              documentation: "Match complex multi-step patterns.",
+            },
+            {
+              label: "simplePath",
+              detail: "simplePath()",
+              documentation: "Ensure no object is repeated in the path.",
+            },
+            {
+              label: "cyclicPath",
+              detail: "cyclicPath()",
+              documentation: "Ensure at least one object repeats in the path.",
+            },
+            {
+              label: "identity",
+              detail: "identity()",
+              documentation: "Pass through each object unchanged.",
+            },
           ];
-          return {
-            suggestions: keywords.map((kw) => ({
-              label: kw,
-              kind: monaco.languages.CompletionItemKind.Method,
-              insertText: kw + "()",
-              insertTextRules:
-                monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-            })),
-          };
-        },
-      });
 
-      // 3) Create the raw-JSON viewer
-      const rawEditor = monaco.editor.create(
-        document.getElementById("raw-json"),
-        {
-          value: "",
-          language: "json",
-          theme: "vs-light",
-          readOnly: true,
-          minimap: { enabled: false },
-          automaticLayout: true,
-        }
-      );
+          monaco.languages.registerCompletionItemProvider("java", {
+            triggerCharacters: [".", "("],
+            provideCompletionItems: (model, position) => {
+              const text = model.getValueInRange({
+                startLineNumber: 1,
+                startColumn: 1,
+                endLineNumber: position.lineNumber,
+                endColumn: position.column,
+              });
+              const match = /(?:\b[gG]\w*|\))\.(\w*)$/.exec(text);
+              if (!match) return { suggestions: [] };
+              const prefix = match[1].toLowerCase();
 
-      // 4) Your existing D3 + Gremlin wiring
-      const form = document.getElementById("gremlin-form");
-      const submitBtn = document.getElementById("submit-btn");
+              const suggestions = gremlinSteps
+                .filter((step) => step.label.toLowerCase().startsWith(prefix))
+                .map((step) => ({
+                  label: step.label,
+                  kind: monaco.languages.CompletionItemKind.Method,
+                  detail: step.detail,
+                  documentation: { value: step.documentation },
+                  insertText: `${step.label}(${"${1}"})$0`,
+                  insertTextRules:
+                    monaco.languages.CompletionItemInsertTextRule
+                      .InsertAsSnippet,
+                }));
 
-      queryEditor.addAction({
-        id: "execute",
-        label: "Executes the query",
-        keybindings: [
-          monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter
-        ],
+              return { suggestions };
+            },
+          });
 
-        // A precondition for this action.
-        precondition: null,
+          monaco.languages.registerSignatureHelpProvider("java", {
+            signatureHelpTriggerCharacters: ["(", ","],
+            provideSignatureHelp: (model, position) => {
+              const word = model.getWordUntilPosition(position);
+              const before = model.getValueInRange({
+                startLineNumber: position.lineNumber,
+                startColumn: Math.max(
+                  1,
+                  word.startColumn - word.word.length - 1
+                ),
+                endLineNumber: position.lineNumber,
+                endColumn: position.column,
+              });
+              const sigMatch = /([a-zA-Z]+)\($/.exec(before);
+              if (!sigMatch) return { value: null, dispose: () => {} };
+              const step = gremlinSteps.find((s) => s.label === sigMatch[1]);
+              if (!step || !/\(.*\)/.test(step.detail))
+                return { value: null, dispose: () => {} };
 
-        // A rule to evaluate on top of the precondition in order to dispatch the keybindings.
-        keybindingContext: null,
+              const params = step.detail
+                .match(/\((.*)\)/)[1]
+                .split(",")
+                .map((p) => ({ label: p.trim() }));
+              return {
+                value: {
+                  signatures: [
+                    {
+                      label: `${step.label}(${params
+                        .map((p) => p.label)
+                        .join(", ")})`,
+                      parameters: params,
+                    },
+                  ],
+                  activeSignature: 0,
+                  activeParameter: before.split(",").length - 1,
+                },
+                dispose: () => {},
+              };
+            },
+          });
 
-        contextMenuGroupId: "navigation",
-
-        contextMenuOrder: 1.5,
-
-        run: function (ed) {
-          submitBtn.click()
-        },
-      });
-
-
-      const svgContainer = d3.select("#graph");
-      const tooltip = d3.select("#tooltip");
-      let svg, inner, zoom, simulation, links, nodes;
-
-      function createSvg() {
-        svgContainer.selectAll("*").remove();
-        svg = svgContainer.append("svg").attr("width", 0).attr("height", 0);
-        inner = svg.append("g").attr("class", "inner");
-        zoom = d3
-          .zoom()
-          .scaleExtent([0.1, 10])
-          .on("zoom", (e) => inner.attr("transform", e.transform));
-        svg.call(zoom);
-        resize();
-      }
-      function resize() {
-        if (!svg) return;
-        const w = svgContainer.node().clientWidth,
-          h = svgContainer.node().clientHeight;
-        svg.attr("width", w).attr("height", h);
-        if (simulation) {
-          simulation
-            .force("center", d3.forceCenter(w / 2, h / 2))
-            .alpha(0.3)
-            .restart();
-        }
-      }
-      window.addEventListener("resize", resize);
-
-      form.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        new bootstrap.Tab(document.querySelector("#graph-tab-btn")).show();
-
-        let raw;
-        try {
-          raw = await window.api.executeQuery(queryEditor.getValue());
-        } catch (err) {
-          return alert("Query error: " + err.message);
-        }
-
-        rawEditor.setValue(JSON.stringify(raw, null, 2));
-
-        const flattened = [];
-        raw.forEach((item) => {
-          if (Array.isArray(item.objects)) {
-            item.objects.forEach((o) => flattened.push(o));
-          } else {
-            flattened.push(item);
+          monaco.languages.registerHoverProvider("java", {
+            provideHover: (model, position) => {
+              const wordInfo = model.getWordAtPosition(position);
+              if (!wordInfo) return null;
+              const step = gremlinSteps.find((s) => s.label === wordInfo.word);
+              if (!step) return null;
+              return {
+                range: new monaco.Range(
+                  position.lineNumber,
+                  wordInfo.startColumn,
+                  position.lineNumber,
+                  wordInfo.endColumn
+                ),
+                contents: [
+                  { value: `**${step.label}**: ${step.documentation}` },
+                ],
+              };
+            },
+          });
+        })(monaco);
+        // 3) Create the raw-JSON viewer
+        const rawEditor = monaco.editor.create(
+          document.getElementById("raw-json"),
+          {
+            value: "",
+            language: "json",
+            theme: "vs-light",
+            readOnly: true,
+            minimap: { enabled: false },
+            automaticLayout: true,
           }
+        );
+
+        // 4) Your existing D3 + Gremlin wiring
+        const form = document.getElementById("gremlin-form");
+        const submitBtn = document.getElementById("submit-btn");
+
+        queryEditor.addAction({
+          id: "execute",
+          label: "Executes the query",
+          keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter],
+
+          // A precondition for this action.
+          precondition: null,
+
+          // A rule to evaluate on top of the precondition in order to dispatch the keybindings.
+          keybindingContext: null,
+
+          contextMenuGroupId: "navigation",
+
+          contextMenuOrder: 1.5,
+
+          run: function (ed) {
+            submitBtn.click();
+          },
         });
-        if (raw.length && Array.isArray(raw[0].objects)) {
-          let allV = [];
+
+        const svgContainer = d3.select("#graph");
+        const tooltip = d3.select("#tooltip");
+        let svg, inner, zoom, simulation, links, nodes;
+
+        function createSvg() {
+          svgContainer.selectAll("*").remove();
+          svg = svgContainer.append("svg").attr("width", 0).attr("height", 0);
+          inner = svg.append("g").attr("class", "inner");
+          zoom = d3
+            .zoom()
+            .scaleExtent([0.1, 10])
+            .on("zoom", (e) => inner.attr("transform", e.transform));
+          svg.call(zoom);
+          resize();
+        }
+        function resize() {
+          if (!svg) return;
+          const w = svgContainer.node().clientWidth,
+            h = svgContainer.node().clientHeight;
+          svg.attr("width", w).attr("height", h);
+          if (simulation) {
+            simulation
+              .force("center", d3.forceCenter(w / 2, h / 2))
+              .alpha(0.3)
+              .restart();
+          }
+        }
+        window.addEventListener("resize", resize);
+
+        form.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          new bootstrap.Tab(document.querySelector("#graph-tab-btn")).show();
+
+          let raw;
           try {
-            allV = await window.api.executeQuery("g.V().toList()");
-          } catch (_) { }
-          allV.forEach((v) => flattened.push(v));
-        }
-
-        function extractProps(map) {
-          const out = {};
-          for (const [k, v] of Object.entries(map || {})) {
-            if (Array.isArray(v)) {
-              const vals = v.map((x) => x.value);
-              out[k] = vals.length === 1 ? vals[0] : vals;
-            } else out[k] = v;
+            raw = await window.api.executeQuery(queryEditor.getValue());
+          } catch (err) {
+            return alert("Query error: " + err.message);
           }
-          return out;
-        }
-        const nodesMap = new Map();
-        links = [];
-        flattened.forEach((item) => {
-          let type,
-            v = item;
-          if (item["@type"] && item["@value"]) {
-            type = item["@type"];
-            v = item["@value"];
-          } else if (item.outV != null && item.inV != null) {
-            type = "g:Edge";
-          } else if (item.id != null && item.label) {
-            type = "g:Vertex";
-          } else return;
 
-          if (type === "g:Vertex") {
-            nodesMap.set(v.id, {
-              id: v.id,
-              label: v.label,
-              props: extractProps(v.properties),
-            });
-          } else {
-            const src = typeof v.outV === "object" ? v.outV.id : v.outV;
-            const tgt = typeof v.inV === "object" ? v.inV.id : v.inV;
-            links.push({
-              id: v.id,
-              source: src,
-              target: tgt,
-              label: v.label,
-              props: extractProps(v.properties),
-            });
-            if (!nodesMap.has(src))
-              nodesMap.set(src, { id: src, label: "", props: {} });
-            if (!nodesMap.has(tgt))
-              nodesMap.set(tgt, { id: tgt, label: "", props: {} });
-          }
-        });
-        nodes = Array.from(nodesMap.values());
+          rawEditor.setValue(JSON.stringify(raw, null, 2));
 
-        createSvg();
-        svg
-          .append("defs")
-          .selectAll("marker")
-          .data(["arrowhead"]) // Define the id for the arrow marker
-          .join("marker")
-          .attr("id", "arrowhead")
-          .attr("viewBox", "0 -5 10 10")
-          .attr("refX", 22) // Increased the value to 16 to account for the node radius (8) + some padding
-          .attr("refY", 0)
-          .attr("markerWidth", 6)
-          .attr("markerHeight", 6)
-          .attr("orient", "auto")
-          .append("path")
-          .attr("d", "M0,-5L10,0L0,5") // Shape of the arrow
-          .attr("fill", "#999"); // Arrow color
-
-        inner
-          .append("g")
-          .attr("stroke", "#999")
-          .attr("stroke-opacity", 0.6)
-          .selectAll("line")
-          .data(links)
-          .join("line")
-          .attr("stroke-width", (d) => Math.sqrt(d.props.weight || 1))
-          .attr("marker-end", "url(#arrowhead)");
-
-        const linkLabels = inner
-          .append("g")
-          .selectAll("text")
-          .data(links)
-          .join("text")
-          .style("font-size", "10px")
-          .style("font-family", "Arial")
-          .style("fill", "#666")
-          .attr("text-anchor", "middle")
-          .text((d) => d.label || "");
-
-        const nodeElems = inner
-          .append("g")
-          .selectAll("g")
-          .data(nodes)
-          .join("g")
-          .call(
-            d3
-              .drag()
-              .on("start", (e, d) => {
-                if (!e.active) simulation.alphaTarget(0.3).restart();
-                d.fx = d.x;
-                d.fy = d.y;
-              })
-              .on("drag", (e, d) => {
-                d.fx = e.x;
-                d.fy = e.y;
-              })
-              .on("end", (e, d) => {
-                if (!e.active) simulation.alphaTarget(0);
-                d.fx = d.fy = null;
-              })
-          );
-
-        const colorScale = d3.scaleOrdinal()
-          .domain([...new Set(nodes.map(node => node.label))])
-          .range(d3.schemeCategory10);
-
-        nodeElems
-          .append("circle")
-          .attr("r", 8)
-          .attr("fill", d => colorScale(d.label));
-
-        nodeElems
-          .append("text")
-          .attr("x", 15)
-          .attr("y", 3)
-          .style("font-size", "10px")
-          .style("font-family", "Arial")
-          .style("fill", "#333")
-          .each(function (d) {
-            const text = `${d.label || "vertex"} (id: ${d.id})\n${Object.entries(d.props)
-              .map(([k, v]) => `${k}: ${v}`)
-              .join("\n")}`;
-
-            const lines = text.split("\n");
-            let prev = null;
-            lines.forEach((line, i) => {
-              prev = d3.select(this)
-                .append("tspan")
-                .attr("dy", i === 0 ? 0 : "1.2em")
-                .attr("dx", i === 0 ? 0 : -prev.node().getComputedTextLength())
-                .text(line);
-            });
+          const flattened = [];
+          raw.forEach((item) => {
+            if (Array.isArray(item.objects)) {
+              item.objects.forEach((o) => flattened.push(o));
+            } else {
+              flattened.push(item);
+            }
           });
+          if (raw.length && Array.isArray(raw[0].objects)) {
+            let allV = [];
+            try {
+              allV = await window.api.executeQuery("g.V().toList()");
+            } catch (_) {}
+            allV.forEach((v) => flattened.push(v));
+          }
 
-        simulation = d3
-          .forceSimulation(nodes)
-          .force("link", d3.forceLink(links).id(d => d.id).distance(200))
-          .force("charge", d3.forceManyBody().strength(-200))
-          .force(
-            "center",
-            d3.forceCenter(
-              svgContainer.node().clientWidth / 2,
-              svgContainer.node().clientHeight / 2
+          function extractProps(map) {
+            const out = {};
+            for (const [k, v] of Object.entries(map || {})) {
+              if (Array.isArray(v)) {
+                const vals = v.map((x) => x.value);
+                out[k] = vals.length === 1 ? vals[0] : vals;
+              } else out[k] = v;
+            }
+            return out;
+          }
+          const nodesMap = new Map();
+          links = [];
+          flattened.forEach((item) => {
+            let type,
+              v = item;
+            if (item["@type"] && item["@value"]) {
+              type = item["@type"];
+              v = item["@value"];
+            } else if (item.outV != null && item.inV != null) {
+              type = "g:Edge";
+            } else if (item.id != null && item.label) {
+              type = "g:Vertex";
+            } else return;
+
+            if (type === "g:Vertex") {
+              nodesMap.set(v.id, {
+                id: v.id,
+                label: v.label,
+                props: extractProps(v.properties),
+              });
+            } else {
+              const src = typeof v.outV === "object" ? v.outV.id : v.outV;
+              const tgt = typeof v.inV === "object" ? v.inV.id : v.inV;
+              links.push({
+                id: v.id,
+                source: src,
+                target: tgt,
+                label: v.label,
+                props: extractProps(v.properties),
+              });
+              if (!nodesMap.has(src))
+                nodesMap.set(src, { id: src, label: "", props: {} });
+              if (!nodesMap.has(tgt))
+                nodesMap.set(tgt, { id: tgt, label: "", props: {} });
+            }
+          });
+          nodes = Array.from(nodesMap.values());
+
+          createSvg();
+          svg
+            .append("defs")
+            .selectAll("marker")
+            .data(["arrowhead"]) // Define the id for the arrow marker
+            .join("marker")
+            .attr("id", "arrowhead")
+            .attr("viewBox", "0 -5 10 10")
+            .attr("refX", 22) // Increased the value to 16 to account for the node radius (8) + some padding
+            .attr("refY", 0)
+            .attr("markerWidth", 6)
+            .attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,-5L10,0L0,5") // Shape of the arrow
+            .attr("fill", "#999"); // Arrow color
+
+          inner
+            .append("g")
+            .attr("stroke", "#999")
+            .attr("stroke-opacity", 0.6)
+            .selectAll("line")
+            .data(links)
+            .join("line")
+            .attr("stroke-width", (d) => Math.sqrt(d.props.weight || 1))
+            .attr("marker-end", "url(#arrowhead)");
+
+          const linkLabels = inner
+            .append("g")
+            .selectAll("text")
+            .data(links)
+            .join("text")
+            .style("font-size", "10px")
+            .style("font-family", "Arial")
+            .style("fill", "#666")
+            .attr("text-anchor", "middle")
+            .text((d) => d.label || "");
+
+          const nodeElems = inner
+            .append("g")
+            .selectAll("g")
+            .data(nodes)
+            .join("g")
+            .call(
+              d3
+                .drag()
+                .on("start", (e, d) => {
+                  if (!e.active) simulation.alphaTarget(0.3).restart();
+                  d.fx = d.x;
+                  d.fy = d.y;
+                })
+                .on("drag", (e, d) => {
+                  d.fx = e.x;
+                  d.fy = e.y;
+                })
+                .on("end", (e, d) => {
+                  if (!e.active) simulation.alphaTarget(0);
+                  d.fx = d.fy = null;
+                })
+            );
+
+          const colorScale = d3
+            .scaleOrdinal()
+            .domain([...new Set(nodes.map((node) => node.label))])
+            .range(d3.schemeCategory10);
+
+          nodeElems
+            .append("circle")
+            .attr("r", 8)
+            .attr("fill", (d) => colorScale(d.label));
+
+          nodeElems
+            .append("text")
+            .attr("x", 15)
+            .attr("y", 3)
+            .style("font-size", "10px")
+            .style("font-family", "Arial")
+            .style("fill", "#333")
+            .each(function (d) {
+              const text = `${d.label || "vertex"} (id: ${
+                d.id
+              })\n${Object.entries(d.props)
+                .map(([k, v]) => `${k}: ${v}`)
+                .join("\n")}`;
+
+              const lines = text.split("\n");
+              let prev = null;
+              lines.forEach((line, i) => {
+                prev = d3
+                  .select(this)
+                  .append("tspan")
+                  .attr("dy", i === 0 ? 0 : "1.2em")
+                  .attr(
+                    "dx",
+                    i === 0 ? 0 : -prev.node().getComputedTextLength()
+                  )
+                  .text(line);
+              });
+            });
+
+          simulation = d3
+            .forceSimulation(nodes)
+            .force(
+              "link",
+              d3
+                .forceLink(links)
+                .id((d) => d.id)
+                .distance(200)
             )
-          )
-          .on("tick", () => {
-            inner
-              .selectAll("line")
-              .attr("x1", (d) => d.source.x)
-              .attr("y1", (d) => d.source.y)
-              .attr("x2", (d) => d.target.x)
-              .attr("y2", (d) => d.target.y);
+            .force("charge", d3.forceManyBody().strength(-200))
+            .force(
+              "center",
+              d3.forceCenter(
+                svgContainer.node().clientWidth / 2,
+                svgContainer.node().clientHeight / 2
+              )
+            )
+            .on("tick", () => {
+              inner
+                .selectAll("line")
+                .attr("x1", (d) => d.source.x)
+                .attr("y1", (d) => d.source.y)
+                .attr("x2", (d) => d.target.x)
+                .attr("y2", (d) => d.target.y);
 
-            linkLabels
-              .attr("x", (d) => (d.source.x + d.target.x) / 2)
-              .attr("y", (d) => (d.source.y + d.target.y) / 2);
+              linkLabels
+                .attr("x", (d) => (d.source.x + d.target.x) / 2)
+                .attr("y", (d) => (d.source.y + d.target.y) / 2);
 
-            nodeElems.selectAll("circle")
-              .attr("cx", (d) => d.x)
-              .attr("cy", (d) => d.y);
+              nodeElems
+                .selectAll("circle")
+                .attr("cx", (d) => d.x)
+                .attr("cy", (d) => d.y);
 
-            nodeElems.selectAll("text")
-              .attr("x", (d) => d.x + 10)
-              .attr("y", (d) => d.y + 3);
-          });
+              nodeElems
+                .selectAll("text")
+                .attr("x", (d) => d.x + 10)
+                .attr("y", (d) => d.y + 3);
+            });
+        });
       });
-    });
-  </script>
-</body>
-
+    </script>
+  </body>
 </html>
