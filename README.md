@@ -27,7 +27,7 @@
 ## Prerequisites
 
 - **Node.js** ≥ 14  
-- **npm** (bundled with Node.js)  
+- **npm** (bundled with Node.js)
 - A running **JanusGraph** instance with WebSocket/Gremlin Server enabled
 
 ---

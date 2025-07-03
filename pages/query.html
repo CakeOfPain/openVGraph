@@ -180,6 +180,8 @@
           }
         );
 
+        
+
         // 2) Register a tiny Gremlin keyword completion
         (function registerGremlinAutocomplete(monaco) {
           const gremlinSteps = [
@@ -806,7 +808,8 @@
           nodeElems
             .append("circle")
             .attr("r", 8)
-            .attr("fill", (d) => colorScale(d.label));
+            .attr("fill", (d) => colorScale(d.label))
+            .attr("stroke", "black");
 
           nodeElems
             .append("text")
